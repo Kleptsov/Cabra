@@ -206,7 +206,7 @@
     };
     
     var compileMessage = function(aNamespace, aMessage){
-        if (aMessage[1] == "primitive") {
+        if (aMessage[0] == "primitive") {
             return compilePrimitive(aNamespace, aMessage);
         };
         var argumentCount = aMessage.length - 2;
@@ -234,12 +234,15 @@
         compiledMessage[1] = aMessage[1];
         compiledMessage[2] = 0;
         compiledMessage[3] = 0;
-        if (aMessage[1] == 5) {
+        if (aMessage[1] == 4) {
             return compiledMessage; //примитив возврат результата не использует аргументы
         };
         address = getVariableAddress(aNamespace, aMessage[2]);
         compiledMessage[4] = address[0];    // первая переменная примитива
         compiledMessage[5] = address[1];
+        if (aMessage[1] == 5) {              // для возврата переменной требуется только одна переменная
+            return compiledMessage;
+        };
         if (primitiveArg2Map[aMessage[1]]) {
             address = getVariableAddress(aNamespace, aMessage[3]);
             compiledMessage[6] = address[0];
@@ -346,6 +349,25 @@
             */
         ]
     );
+    addInstanceMethodFor("Number",
+    [
+       ["testMethodArg:arg:", "test"],                  // testMethodArg: arg1 arg: arg2
+       ["arg1", "arg2"],
+       ["na1", "na2", "na3"],                           // |na1 na2 na3|
+       ["primitive", 2, "na1", 99],                     // na1 := 99.
+       ["primitive", 6, "na1", "na1"],                  // recentResult := na1 + na1.
+       ["primitive", 8, "recentResult", "na1"],         // recentResult := recentResult * na1.
+       ["primitive", 1, "protov1", "recentResult"],     // protov1 := recentResult. "protov1 переменная класса"
+       ["protov1", "/", "protov1"],                         // recentResult := protov1 / na1.
+       ["primitive", 4]                                 // ^ protov1
+    ]);
+    addInstanceMethodFor("Number", [
+        ["/", ""],
+        ["aNumber"],
+        [],
+        ["primitive", 9, "self", "aNumber"],            //recentResult := self.native / aNumber.native
+        ["primitive", 4]                                // ^ recentResult
+    ]);
     namespaceFor("Number");
     compileFor("Number");
     
@@ -386,6 +408,7 @@
     var contexts = new Array(100);
     var contextIndex = 0;
     var currentContext;
+    var isActive = true;
     
     
     //шаг сообщения
@@ -397,16 +420,16 @@
         obj[1] = currentContext[6];
         obj[2] = currentContext[7];
         //чтение сообщения
-        msg = currentContext[4][2];
+        msg = currentContext[4][currentContext[2]];
         if (msg[0] == (-1)) {
             //выполнение примитива
             primitives[msg[1]]();
         } else {
             //передача параметров в следующий контекст
-            createContext[msg[0]](obj, msg);
+            createContext[msg[0]]();
             contextIndex ++;
         };
-        methodContext[2] ++;
+        currentContext[2] ++;
     };
         
     //создание контекста
@@ -415,20 +438,20 @@
         function(){
             rec = obj[msg[1]][msg[2]];
             sel = obj[0][msg[3]];
-            contexts[conextIndex + 1] = [0, 0, 1, rec, sel, null, null, new Array(sel[0][1])];
+            contexts[contextIndex + 1] = [0, 0, 1, rec, sel, null, null, new Array(sel[0][1])];
         },
         function(){
             rec = obj[msg[1]][msg[2]];
             sel = obj[0][msg[3]];
             arg = obj[msg[4]][msg[5]];
-            contexts[conextIndex + 1] = [0, 0, 1, rec, sel, null, [arg] , new Array(sel[0][1])];
+            contexts[contextIndex + 1] = [0, 1, 1, rec, sel, null, [arg] , new Array(sel[0][1])];
         },
         function(){
             rec = obj[msg[1]][msg[2]];
             sel = obj[0][msg[3]];
             arg = obj[msg[4]][msg[5]];
             arg2 = obj[msg[6]][msg[7]];
-            contexts[conextIndex + 1] = [0, 0, 1, rec, sel, null, [arg, arg2] , new Array(sel[0][1])];
+            contexts[contextIndex + 1] = [0, 2, 1, rec, sel, null, [arg, arg2] , new Array(sel[0][1])];
         },
         function(){
             rec = obj[msg[1]][msg[2]];
@@ -436,7 +459,7 @@
             arg = obj[msg[4]][msg[5]];
             arg2 = obj[msg[6]][msg[7]];
             arg3 = obj[msg[8]][msg[8]];
-            contexts[conextIndex + 1] = [0, 0, 1, rec, sel, null, [arg, arg2, arg3] , new Array(sel[0][1])];
+            contexts[contextIndex + 1] = [0, 3, 1, rec, sel, null, [arg, arg2, arg3] , new Array(sel[0][1])];
         },
         function(){
             rec = obj[msg[1]][msg[2]];
@@ -445,7 +468,7 @@
             arg2 = obj[msg[6]][msg[7]];
             arg3 = obj[msg[8]][msg[9]];
             arg4 = obj[msg[10]][msg[11]];
-            contexts[conextIndex + 1] = [0, 0, 1, rec, sel, null, [arg, arg2, arg3, arg4] , new Array(sel[0][1])];
+            contexts[contextIndex + 1] = [0, 4, 1, rec, sel, null, [arg, arg2, arg3, arg4] , new Array(sel[0][1])];
         },
         function(){
             rec = obj[msg[1]][msg[2]];
@@ -455,9 +478,20 @@
             arg3 = obj[msg[8]][msg[9]];
             arg4 = obj[msg[10]][msg[11]];
             arg5 = obj[msg[12]][msg[13]];
-            contexts[conextIndex + 1] = [0, 0, 1, rec, sel, null, [arg, arg2, arg3, arg4] , new Array(sel[0][1])];
+            contexts[contextIndex + 1] = [0, 5, 1, rec, sel, null, [arg, arg2, arg3, arg4] , new Array(sel[0][1])];
         }
     ];
+    
+    var stProcess = function(){
+        while(isActive){
+            stepMessage();
+        }
+    };
+    
+    var contextFrom = function(obj, selector, args){
+        var method = obj[0][stSymbols[selector]];
+        return [0, args.length, 1, obj, method, null, args, new Array(method[0][1])]
+    }
     
     
  
@@ -490,33 +524,55 @@
         },
         //4 возврат последнего результата сообщения (recentResult)
         function () {
-            msgResult = obj[3][1];
+            primitiveVar = obj[3][1];
+            if (contextIndex > 0) {
+                contexts[contextIndex] = null;
+                contextIndex --;
+                contexts[contextIndex][3][3][1] = primitiveVar;
+            } else {
+                msgResult = primitiveVar;
+                isActive = false;
+            };
         },
         //5 возврат результата из переменной
         function(){
-            msgResult = obj[msg[4]][msg[5]];
-            obj[3][1] = msgResult;
+            primitiveVar = obj[msg[4]][msg[5]];
+            obj[3][1] = primitiveVar;
+            if (contextIndex > 0){
+                contexts[contextIndex] = null;
+                contextIndex --;
+                contexts[contextIndex][3][3][1] = primitiveVar;
+            } else {
+                msgResult = primitiveVar;
+                isActive = false;
+            };
         },
         //6 сложение чисел
         function(){
-            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][3] + obj[msg[6]][msg[7]][3][3]);
+            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][2] + obj[msg[6]][msg[7]][3][2]);
             obj[3][1] = primitiveVar;
         },
         //7 разность чисел
         function(){
-            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][3] - obj[msg[6]][msg[7]][3][3]);
+            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][2] - obj[msg[6]][msg[7]][3][2]);
             obj[3][1] = primitiveVar;
         },
         //8 умножение чисел
         function(){
-            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][3] * obj[msg[6]][msg[7]][3][3]);
+            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][2] * obj[msg[6]][msg[7]][3][2]);
             obj[3][1] = primitiveVar;
         },
         //9 деление чисел
         function(){
-            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][3] / obj[msg[6]][msg[7]][3][3]);
+            primitiveVar = newNumber(obj[msg[4]][msg[5]][3][2] / obj[msg[6]][msg[7]][3][2]);
             obj[3][1] = primitiveVar;
         }
     ];
+    
+    
+    contexts[0] = contextFrom(newNumber(7), "testMethodArg:arg:", [newNumber(70), newNumber(71)]);
+    stProcess();
+    console.log(msgResult);
+    
     
 })()
