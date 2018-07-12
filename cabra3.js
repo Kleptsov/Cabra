@@ -3,13 +3,19 @@
     /******* описание классов *******/
     
             //таблица переменных и методов
+	
+	// smalltalk символы
     var stSymbols = {};
     
-    var stSymbolIndex = 0;
+    // индекс символов
+	var stSymbolIndex = 0;
     
+	// хранилище классов
     var stClasses = {};
     
-    var getSymbolIndex = function(aSymbol) {
+    // функция получения индекса символа, если символа нет
+	// тогда добавляется в хранилище, и возвращается индекс
+	var getSymbolIndex = function(aSymbol) {
         if (aSymbol in stSymbols){
             return stSymbols[aSymbol]
         } else {
@@ -19,57 +25,66 @@
         } 
     };
     
+	// добавить класс объекта
     var addClass = function(aClassName){
         getClassIndex(aClassName);
     };
     
+	// получение индекса класса, если класса нет
+	// тогда регистрируется и возвращается индекс
     var getClassIndex = function(aSymbol){
         var index = getSymbolIndex(aSymbol);
         if (index in stClasses) {
             return index;
         } else {
             stClasses[index] = {
-                className: aSymbol,
-                superclass: "Object",
-                category: "undefinded",
-                instanceVariableNames: [],
-                classVariableNames: [],
-                classVariableObjects: [],
-                metaclassInstanceNames: [],
-                instanceMethods: {},
-                compiledInstanceMethods: {},
-                metaclassMethods: {},
-                namespace: [],
-                methodNamespace: [],
-                configuration: []
+                className: aSymbol, 		//имя класса
+                superclass: "Object",		//супер класс
+                category: "undefinded",		//категория (пакет)
+                instanceVariableNames: [],	//имена переменных экземпляра
+                classVariableNames: [],		//имена переменных класса
+                classVariableObjects: [],	//объекты размещеннные в переменных класса
+                metaclassInstanceNames: [],	//имена переменных метакласса
+                instanceMethods: {},		//методы некомпилированные
+                compiledInstanceMethods: {},//компилированные методы
+                metaclassMethods: {},		//методы метакласса
+                namespace: [],				//пространство имен
+                methodNamespace: [],		//пространство имен метода
+                configuration: []			//конфигурация
             };
             return index;
         }
     };
     
-    var numberClassIndex = getClassIndex("Number");
+    //индекс класса Number
+	var numberClassIndex = getClassIndex("Number");
     
+	//получить описание класса
     var getClassDescription = function(aClassName){
         var index = getClassIndex(aClassName);
         return stClasses[index];
     };
     
+	//установить суперкласс для класса
     var superclassFor = function(aClassName, aSuperclassName){
         var classDescription = getClassDescription(aClassName);
         classDescription.superclass = aSuperclassName;
     };
     
+	//получить имена переменных экземляра
     var instanceVariableNamesFor = function(aClassName, someVariables){
         var classDescription = getClassDescription(aClassName);
         classDescription["instanceVariableNames"] = someVariables;
     };
     
-    var classVariableNamesFor = function(aClassName, someVariables){
+    //получить имена переменных класса
+	var classVariableNamesFor = function(aClassName, someVariables){
         var classDescription = getClassDescription(aClassName);
         classDescription.classVariableNames = someVariables;
         classDescription.classVariableObjects = new Array(someVariables.length);
     };
     
+	//получить методы экземпляра (без суперклассов)
     var getInstanceMethodDescription = function(aClassName){
         var classDescription = getClassDescription(aClassName);
         if (! ("instanceMethods" in classDescription)) {
@@ -78,12 +93,14 @@
         return classDescription.instanceMethods;
     };
     
+	//добавить метод экземпляра
     var addInstanceMethodFor = function(aClassName, method){
         var methodDescription = getInstanceMethodDescription(aClassName);
         var methodIndex = getSymbolIndex(method[0][0]);
         methodDescription[methodIndex] = method;
     };
     
+	//получить описание метода класса
     var getMetaclassMethodDescription = function(aClassName){
         var classDescription = getClassDescription(aClassName);
         if (! ("metaclassMethods" in classDescription)) {
@@ -92,18 +109,21 @@
         return classDescription.classMethods;
     };
     
+	//добавить метод класса
     var addClassMethodFor = function(aClassName, method){
         var classMethodDescription = getMetaclassMethodDescription(aClassName);
         var methodIndex = getSymbolIndex(method[0][0]);
         classMethodDescription[methodIndex] = method;
     };
     
+	//
     var metaClassInstancesFor = function(aClassName, someInstances){
         var classDescription = getClassDescription(aClassName);
         classDescription.metaClassInstances = someInstances;
     };
     
-    var getMetaclassMethodDescription = function(aClassName){
+    //получить описание метода класса
+	var getMetaclassMethodDescription = function(aClassName){
         var classDescription = getClassDescription(aClassName);
         if (! ("metaClassMethods" in classDescription)) {
             classDescription.metaclassMethods = {};
@@ -111,7 +131,8 @@
         return classDescription.metaclassMethods;
     };
     
-    var addMetaclassMethodFor = function(aClassName, method){
+    //добавить метод метакласса
+	var addMetaclassMethodFor = function(aClassName, method){
         var metaClassMethodDescription = getMetaclassMethodDescription(aClassName);
         var methodIndex = getSymbolIndex(method[0][0]);
         metaclassMethodDescription[methodIndex] = method;
@@ -121,9 +142,16 @@
     
     /******* компиляция *******/
     
-    var namespaceFor = function(aClassName){
-        var classDescription = getClassDescription(aClassName);        
+    //пространство имен
+	// 0 - аргументы
+	// 1 - переменные метода
+	// 2 - переменные класса
+	// 3 - псевдопеременные self [3, 0] recentResult [3, 1]
+	// 4 - переменные экземпляров
+	var namespaceFor = function(aClassName){
+        var classDescription = getClassDescription(aClassName);
         classDescription.namespace = [ null, null, null, ["self", "recentResult"], [] ];
+		//конфигурация 0- 1- 2- 3- 4-количество переменных
         classDescription.configuration = [ null, null, null, 2, null ];
         classDescription.methodNamespace = [];
         variablesForNamespace(aClassName, classDescription);
@@ -132,7 +160,8 @@
         instanceMethodsForNamespace(aClassName, classDescription);
     };
     
-    var variablesForNamespace = function(aClassName, aClassDescription){
+    //добавление в пространство имен переменных экземпляра, включая суперклассы
+	var variablesForNamespace = function(aClassName, aClassDescription){
         var classDescription = getClassDescription(aClassName);
         var instanceVariableNames = classDescription.instanceVariableNames;
         concateVariables(aClassDescription.namespace[4], instanceVariableNames);
@@ -141,15 +170,18 @@
         }
     };
     
-    var concateVariables = function(array1, array2){
+    //соединение массивов
+	var concateVariables = function(array1, array2){
         var size = array2.length;
         for (var i = 0; i < size; i ++){
             array1.push(array2[i]);
         };
     };
     
-    var classVariablesForNamespace = function(aClassName, aClassDescription){
-        var classDescription = getClassDescription(aClassName);
+    //добавление в пространство имен переменных класса и
+	//в конфигурацию объектов переменных класса
+	var classVariablesForNamespace = function(aClassName, aClassDescription){
+     	var classDescription = getClassDescription(aClassName);
         var classVariableNames = classDescription.classVariableNames;
         if (classVariableNames.length > 0) {
             aClassDescription.namespace.push(classVariableNames);
@@ -275,13 +307,25 @@
     
     
     /******* создание объектов *******/
+	
+	// структура объекта
+	// 0 - компилированные методы
+	// 1 - аргументы
+	// 2 - локеальные переменны
+	// 3 - [3,0]self [3,1]recentResult
+	// 4 -
     
-    var newObject = function(aClassIndex){
+    //создание нового объекта
+	var newObject = function(aClassIndex){
+		//получить описание класса
         var classDescription = stClasses[aClassIndex];
+		//размер пространства имен
         var size = classDescription.namespace.length;
+		//объект представляет обычный массив массивов.
         var obj = new Array(size);
         var configuration = classDescription.configuration;
         obj[0] = classDescription.compiledInstanceMethods;
+		//[3,0] self
         obj[3] = [obj, null, null];
         obj[4] = new Array(configuration[4]);
         var el;
@@ -293,8 +337,10 @@
         return obj;
     };
     
-    var newNumber = function(aNumber){
+    //создание числа
+	var newNumber = function(aNumber){
         var obj = newObject(numberClassIndex);
+		//число записывается в recentResult
         obj[3][2] = aNumber;
         return obj;
     };
@@ -416,8 +462,9 @@
     var stepMessage = function(){
         currentContext = contexts[contextIndex];
         obj = currentContext[3];
-        //подсоединение аргументов и локальных переменных
+        //подсоединение аргументов
         obj[1] = currentContext[6];
+		//подсоединение локальных переменных
         obj[2] = currentContext[7];
         //чтение сообщения
         msg = currentContext[4][currentContext[2]];
