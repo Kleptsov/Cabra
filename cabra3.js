@@ -161,12 +161,12 @@
     };
     
     //добавление в пространство имен переменных экземпляра, включая суперклассы
-	var variablesForNamespace = function(aClassName, aClassDescription){
+	var variablesForNamespace = function(aClassName){
         var classDescription = getClassDescription(aClassName);
         var instanceVariableNames = classDescription.instanceVariableNames;
         concateVariables(aClassDescription.namespace[4], instanceVariableNames);
         if (classDescription.superclass != null){
-            variablesForNamespace(classDescription.superclass, aClassDescription);
+            variablesForNamespace(classDescription.superclass);
         }
     };
     
@@ -179,14 +179,11 @@
     };
     
     //добавление в пространство имен переменных класса и
-	//в конфигурацию объектов переменных класса
-	var classVariablesForNamespace = function(aClassName, aClassDescription){
+	//конфигурацию объектов переменных класса
+	var classVariablesForNamespace = function(aClassName){
      	var classDescription = getClassDescription(aClassName);
         var classVariableNames = classDescription.classVariableNames;
-        if (classVariableNames.length > 0) {
-            aClassDescription.namespace.push(classVariableNames);
-            aClassDescription.configuration.push(classDescription.classVariableObjects);
-        };
+		concateVariables(classDescription.namespace[5], classDescription.classVariableNames)
         if (classDescription.superclass != null) {
             classVariablesForNamespace(classDescription.superclass, aClassDescription);
         };
@@ -223,8 +220,11 @@
         };
     };
     
-    var compileMethodFor = function(aClassName, aMethod){
+    //компиляция метода
+	var compileMethodFor = function(aClassName, aMethod){
+		//ссылка на класс
         var classDescription = getClassDescription(aClassName);
+		//количество сообщений + 1 массис название метода + 1 массив аргументы сообщения + 1 массив локальные переменные
         var methodSize = aMethod.length;
         var compiledMethod = [[aMethod[1].length, aMethod[2].length]];
         //подготовка пространства имен
@@ -286,7 +286,9 @@
         return compiledMessage;
     };
     
-    var getVariableAddress = function(namespace, aVariableName){
+    //преобразование переменной в матричную ссылку [адрес группы, адрес переменной]
+	//если нет переменой в адресном пространстве возвращается [null, null]
+	var getVariableAddress = function(namespace, aVariableName){
         var namespaceSize = namespace.length;
         var segment;
         var segmentSize;
