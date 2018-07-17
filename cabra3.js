@@ -153,11 +153,16 @@
         classDescription.namespace = [ null, null, null, ["self", "recentResult"], [] ];
 		//конфигурация 0- 1- 2- 3- 4-количество переменных
         classDescription.configuration = [ null, null, null, 2, null ];
+		//будет убрано
         classDescription.methodNamespace = [];
-        variablesForNamespace(aClassName, classDescription);
+		//создание сегмента переменных экземпляра
+        variablesForNamespace(aClassName);
+		//будет убрано
         classDescription.configuration[4] = classDescription.namespace[4].length;
-        classVariablesForNamespace(aClassName, classDescription);
-        instanceMethodsForNamespace(aClassName, classDescription);
+		//создание сегмента переменных экземпляра класса
+        classVariablesForNamespace(aClassName);
+		//
+        instanceMethodsForNamespace(aClassName);
     };
     
     //добавление в пространство имен переменных экземпляра, включая суперклассы
@@ -183,9 +188,9 @@
 	var classVariablesForNamespace = function(aClassName){
      	var classDescription = getClassDescription(aClassName);
         var classVariableNames = classDescription.classVariableNames;
-		concateVariables(classDescription.namespace[5], classDescription.classVariableNames)
+		concateVariables(classDescription.namespace[2], classDescription.classVariableNames)
         if (classDescription.superclass != null) {
-            classVariablesForNamespace(classDescription.superclass, aClassDescription);
+            classVariablesForNamespace(classDescription.superclass);
         };
     };
     
@@ -195,17 +200,18 @@
         return count;
     };
     
-    var instanceMethodsForNamespace = function(aClassName, aClassDescription){
+    var instanceMethodsForNamespace = function(aClassName){
         var classDescription = getClassDescription(aClassName);
         if (objectLength(classDescription.instanceMethods) > 0) {
             aClassDescription.methodNamespace.push(classDescription.instanceMethods);
         };
         if (classDescription.superclass != null) {
-            instanceMethodsForNamespace(classDescription.superclass, aClassDescription);
+            instanceMethodsForNamespace(classDescription.superclass);
         };
     };
     
-    var compileFor = function(aClassName){
+    //компиляция методов
+	var compileFor = function(aClassName){
         var classDescription = getClassDescription(aClassName);
         var namespace;
         var namespaceSize;
